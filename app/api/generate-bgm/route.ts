@@ -1,9 +1,9 @@
-import { GoogleGenAI } from "@google/genai";
-import { NextResponse } from "next/server";
-import { getPromptConfig } from "@/lib/keyword-prompts";
-import { encodeWav } from "@/lib/wav-encoder";
+import { GoogleGenAI } from '@google/genai';
+import { NextResponse } from 'next/server';
+import { getPromptConfig } from '@/lib/keyword-prompts';
+import { encodeWav } from '@/lib/wav-encoder';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 export const maxDuration = 60;
 
 const SAMPLE_RATE = 48000;
@@ -13,34 +13,41 @@ export async function POST(request: Request) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
-      { error: "GEMINI_API_KEY is not configured" },
+      { error: 'GEMINI_API_KEY is not configured' },
       { status: 500 },
     );
   }
 
-  let keyword: string;
+  let keywords: string[];
   try {
     const body = await request.json();
-    keyword = body.keyword;
+    const raw = body.keywords ?? (body.keyword ? [body.keyword] : null);
+    if (!raw || !Array.isArray(raw) || raw.length === 0) {
+      return NextResponse.json(
+        { error: 'keywords array is required' },
+        { status: 400 },
+      );
+    }
+    keywords = raw.filter((k: unknown): k is string => typeof k === 'string');
   } catch {
     return NextResponse.json(
-      { error: "Invalid request body" },
+      { error: 'Invalid request body' },
       { status: 400 },
     );
   }
 
-  if (!keyword || typeof keyword !== "string") {
+  if (keywords.length === 0) {
     return NextResponse.json(
-      { error: "keyword is required" },
+      { error: 'keywords array is required' },
       { status: 400 },
     );
   }
 
-  const config = getPromptConfig(keyword);
+  const config = getPromptConfig(keywords);
 
   const client = new GoogleGenAI({
     apiKey,
-    apiVersion: "v1alpha",
+    apiVersion: 'v1alpha',
   });
 
   const chunks: Buffer[] = [];
@@ -56,20 +63,20 @@ export async function POST(request: Request) {
 
   try {
     const session = await client.live.music.connect({
-      model: "models/lyria-realtime-exp",
+      model: 'models/lyria-realtime-exp',
       callbacks: {
         onmessage: (message) => {
           if (message.serverContent?.audioChunks) {
             for (const chunk of message.serverContent.audioChunks) {
               if (chunk.data) {
-                const audioBuffer = Buffer.from(chunk.data, "base64");
+                const audioBuffer = Buffer.from(chunk.data, 'base64');
                 chunks.push(audioBuffer);
               }
             }
           }
         },
         onerror: (e: ErrorEvent) => {
-          rejectAudio!(new Error(e.message || "WebSocket error"));
+          rejectAudio!(new Error(e.message || 'WebSocket error'));
         },
         onclose: () => {
           if (timer) clearTimeout(timer);
@@ -107,9 +114,7 @@ export async function POST(request: Request) {
           resolveAudio!(wav);
         }, 1000);
       } catch (err) {
-        rejectAudio!(
-          err instanceof Error ? err : new Error(String(err)),
-        );
+        rejectAudio!(err instanceof Error ? err : new Error(String(err)));
       }
     }, COLLECT_SECONDS * 1000);
 
@@ -118,13 +123,15 @@ export async function POST(request: Request) {
     return new NextResponse(new Uint8Array(wav), {
       status: 200,
       headers: {
-        "Content-Type": "audio/wav",
-        "Content-Disposition": `attachment; filename="kdrama-bgm.wav"; filename*=UTF-8''${encodeURIComponent(`kdrama-bgm-${keyword}.wav`)}`,
+        'Content-Type': 'audio/wav',
+        'Content-Disposition': `attachment; filename="kdrama-bgm.wav"; filename*=UTF-8''${encodeURIComponent(
+          `kdrama-bgm-${keywords.slice(0, 3).join('-')}.wav`,
+        )}`,
       },
     });
   } catch (err) {
-    console.error("BGM generation error:", err);
-    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error('BGM generation error:', err);
+    const message = err instanceof Error ? err.message : 'Unknown error';
     return NextResponse.json(
       { error: `BGM generation failed: ${message}` },
       { status: 500 },

@@ -1,10 +1,9 @@
-@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css");
-@import "tailwindcss";
+@import 'tailwindcss';
 
 :root {
   --background: #141414;
   --foreground: #ffffff;
-  --primary: #E50914;
+  --primary: #e50914;
   --primary-hover: #f6121d;
   --text-muted: #b3b3b3;
   --text-dim: #808080;
@@ -27,14 +26,14 @@
   --color-card-border: var(--card-border);
   --color-overlay-dark: var(--overlay-dark);
   --color-nav-bg: var(--nav-bg);
-  --font-sans: "Pretendard Variable", var(--font-geist-sans), sans-serif;
+  --font-sans: 'Pretendard Variable', var(--font-geist-sans), sans-serif;
   --font-mono: var(--font-geist-mono);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: "Pretendard Variable", sans-serif;
+  font-family: 'Pretendard Variable', sans-serif;
 }
 
 /* Hero background with image */
@@ -42,7 +41,7 @@ body {
   background-image:
     linear-gradient(to top, #141414 0%, transparent 50%),
     linear-gradient(to right, rgba(0, 0, 0, 0.7) 30%, transparent 70%),
-    url("/hero-bg.png");
+    url('/hero-bg.png');
   background-size: cover;
   background-position: center top;
   background-repeat: no-repeat;
@@ -50,7 +49,9 @@ body {
 
 /* Feature card hover */
 .feature-card {
-  transition: transform 0.2s ease, background-color 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    background-color 0.2s ease;
 }
 
 .feature-card:hover {
@@ -60,7 +61,9 @@ body {
 
 /* Netflix-style red button glow */
 .btn-primary {
-  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .btn-primary:hover {
