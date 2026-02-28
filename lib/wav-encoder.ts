@@ -2,7 +2,7 @@ export function encodeWav(
   pcm: Buffer,
   sampleRate: number,
   channels: number,
-  bitsPerSample: number
+  bitsPerSample: number,
 ): Buffer {
   const byteRate = (sampleRate * channels * bitsPerSample) / 8;
   const blockAlign = (channels * bitsPerSample) / 8;
