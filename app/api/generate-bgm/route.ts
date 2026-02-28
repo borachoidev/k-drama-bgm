@@ -19,6 +19,7 @@ export async function POST(request: Request) {
   }
 
   let keywords: string[];
+  let genre: string | undefined;
   try {
     const body = await request.json();
     const raw = body.keywords ?? (body.keyword ? [body.keyword] : null);
@@ -29,6 +30,9 @@ export async function POST(request: Request) {
       );
     }
     keywords = raw.filter((k: unknown): k is string => typeof k === 'string');
+    if (typeof body.genre === 'string' && body.genre.trim()) {
+      genre = body.genre.trim();
+    }
   } catch {
     return NextResponse.json(
       { error: 'Invalid request body' },
@@ -43,7 +47,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const config = getPromptConfig(keywords);
+  const config = getPromptConfig(keywords, genre);
 
   const client = new GoogleGenAI({
     apiKey,
@@ -94,10 +98,10 @@ export async function POST(request: Request) {
     await session.setMusicGenerationConfig({
       musicGenerationConfig: {
         bpm: config.bpm,
-        temperature: 1.0,
+        temperature: 0.85,
         brightness: config.brightness,
-        density: config.density,
-        guidance: 4.0,
+        density: Math.min(config.density + 0.15, 1.0),
+        guidance: 5.5,
       },
     });
 

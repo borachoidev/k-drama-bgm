@@ -142,7 +142,7 @@ export function MoodAnalyzer({ onBgColorChange }: MoodAnalyzerProps) {
   }, [clearCountdown, recordedUrl, audioUrl, mergedUrl, onBgColorChange]);
 
   const generateBgm = useCallback(
-    async (moodKeywords: string[]) => {
+    async (moodKeywords: string[], genre?: string) => {
       setIsGeneratingBgm(true);
       setPhase("generating");
       if (audioUrl) {
@@ -153,7 +153,7 @@ export function MoodAnalyzer({ onBgColorChange }: MoodAnalyzerProps) {
         const res = await fetch("/api/generate-bgm", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ keywords: moodKeywords }),
+          body: JSON.stringify({ keywords: moodKeywords, genre }),
         });
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
@@ -191,14 +191,14 @@ export function MoodAnalyzer({ onBgColorChange }: MoodAnalyzerProps) {
         onBgColorChange?.(result.bgColor);
         setPhase("done");
         if (result.keywords.length > 0) {
-          generateBgm(result.keywords);
+          generateBgm(result.keywords, selectedGenre);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "분석 요청에 실패했습니다.");
         setPhase("done");
       }
     },
-    [onBgColorChange, generateBgm]
+    [onBgColorChange, generateBgm, selectedGenre]
   );
 
   const startRecording = useCallback(() => {
@@ -503,7 +503,7 @@ export function MoodAnalyzer({ onBgColorChange }: MoodAnalyzerProps) {
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => generateBgm(keywords)}
+                    onClick={() => generateBgm(keywords, selectedGenre)}
                     disabled={isGeneratingBgm}
                     className="flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
                   >
