@@ -4,18 +4,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { mergeVideoAndAudio } from "@/lib/merge-video";
 
 const GENRES = [
-  "로맨스",
-  "멜로",
-  "스릴러",
-  "코미디",
-  "사극",
-  "미스터리",
-  "일상",
-  "판타지",
-  "의학",
-  "법정",
-  "액션",
-  "공포",
+  "Romance",
+  "Melodrama",
+  "Thriller",
+  "Comedy",
+  "Historical",
+  "Mystery",
+  "Slice of Life",
+  "Fantasy",
+  "Medical",
+  "Legal",
+  "Action",
+  "Horror",
 ] as const;
 
 type Genre = (typeof GENRES)[number];
@@ -48,14 +48,14 @@ async function fetchMood(base64: string, mimeType: string): Promise<MoodData> {
     body: JSON.stringify({ video: base64, mimeType }),
   });
   const text = await res.text();
-  if (!text) throw new Error(`서버 응답 없음 (${res.status})`);
+  if (!text) throw new Error(`Empty server response (${res.status})`);
   let data: { error?: string; keywords?: string[]; bgColor?: string };
   try {
     data = JSON.parse(text);
   } catch {
-    throw new Error(`서버 응답 오류 (${res.status})`);
+    throw new Error(`Invalid server response (${res.status})`);
   }
-  if (!res.ok) throw new Error(data.error ?? `요청 실패 (${res.status})`);
+  if (!res.ok) throw new Error(data.error ?? `Request failed (${res.status})`);
   return {
     keywords: data.keywords ?? [],
     bgColor: data.bgColor ?? "#fafafa",
@@ -74,7 +74,7 @@ export function MoodAnalyzer({ onBgColorChange }: MoodAnalyzerProps) {
 
   const [isCameraOn, setIsCameraOn] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
-  const [selectedGenre, setSelectedGenre] = useState<Genre>("로맨스");
+  const [selectedGenre, setSelectedGenre] = useState<Genre>("Romance");
   const [phase, setPhase] = useState<Phase>("idle");
   const [countdown, setCountdown] = useState(RECORD_DURATION_SEC);
   const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
@@ -100,7 +100,11 @@ export function MoodAnalyzer({ onBgColorChange }: MoodAnalyzerProps) {
     setCameraError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+        video: {
+          facingMode: "environment",
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
         audio: false,
       });
       streamRef.current = stream;
@@ -109,7 +113,9 @@ export function MoodAnalyzer({ onBgColorChange }: MoodAnalyzerProps) {
       }
       setIsCameraOn(true);
     } catch {
-      setCameraError("카메라를 사용할 수 없습니다. 브라우저 권한을 확인해 주세요.");
+      setCameraError(
+        "Unable to access camera. Please check your browser permissions."
+      );
     }
   }, []);
 
@@ -159,7 +165,7 @@ export function MoodAnalyzer({ onBgColorChange }: MoodAnalyzerProps) {
           const errData = await res.json().catch(() => ({}));
           throw new Error(
             (errData as { error?: string }).error ??
-              `BGM 생성 실패 (${res.status})`
+              `BGM generation failed (${res.status})`
           );
         }
         const blob = await res.blob();
@@ -169,7 +175,7 @@ export function MoodAnalyzer({ onBgColorChange }: MoodAnalyzerProps) {
         setPhase("done");
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : "BGM 생성에 실패했습니다."
+          err instanceof Error ? err.message : "Failed to generate BGM."
         );
         setPhase("done");
       } finally {
@@ -194,7 +200,9 @@ export function MoodAnalyzer({ onBgColorChange }: MoodAnalyzerProps) {
           generateBgm(result.keywords);
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "분석 요청에 실패했습니다.");
+        setError(
+          err instanceof Error ? err.message : "Mood analysis failed."
+        );
         setPhase("done");
       }
     },
@@ -284,7 +292,7 @@ export function MoodAnalyzer({ onBgColorChange }: MoodAnalyzerProps) {
       setMergedUrl(url);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "동영상 합치기에 실패했습니다."
+        err instanceof Error ? err.message : "Failed to merge video."
       );
     } finally {
       setIsMerging(false);
@@ -298,27 +306,81 @@ export function MoodAnalyzer({ onBgColorChange }: MoodAnalyzerProps) {
     };
   }, [clearCountdown]);
 
-  const showLivePreview = isCameraOn && phase !== "done" && phase !== "generating";
-  const showRecordedVideo = (phase === "done" || phase === "generating") && recordedUrl;
+  const showLivePreview =
+    isCameraOn && phase !== "done" && phase !== "generating";
+  const showRecordedVideo =
+    (phase === "done" || phase === "generating") && recordedUrl;
+
+  const stepNumber =
+    phase === "idle" && !isCameraOn
+      ? 1
+      : phase === "idle" && isCameraOn
+        ? 2
+        : phase === "recording"
+          ? 2
+          : phase === "analyzing"
+            ? 3
+            : phase === "generating"
+              ? 3
+              : audioUrl && !mergedUrl
+                ? 4
+                : 4;
 
   return (
-    <div className="flex w-full max-w-md flex-col gap-6">
-      <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-        분위기 분석
-      </h1>
-      <p className="text-sm text-zinc-600 dark:text-zinc-400">
-        카메라로 10초 영상을 녹화하면 분위기를 분석합니다.
-      </p>
+    <div className="flex w-full flex-col gap-8">
+      {/* Step indicator */}
+      <div className="flex items-center gap-2">
+        {[
+          { n: 1, label: "Camera" },
+          { n: 2, label: "Record" },
+          { n: 3, label: "Analyze" },
+          { n: 4, label: "Result" },
+        ].map(({ n, label }, i) => (
+          <div key={n} className="flex items-center gap-2">
+            {i > 0 && (
+              <div
+                className={`h-px w-6 sm:w-10 transition-colors duration-500 ${
+                  stepNumber >= n
+                    ? "bg-[var(--accent)]"
+                    : "bg-white/10"
+                }`}
+              />
+            )}
+            <div className="flex items-center gap-1.5">
+              <span
+                className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold transition-all duration-500 ${
+                  stepNumber >= n
+                    ? "bg-[var(--accent)] text-[var(--background)]"
+                    : "bg-white/8 text-[var(--muted)]"
+                }`}
+              >
+                {stepNumber > n ? "✓" : n}
+              </span>
+              <span
+                className={`hidden text-xs font-medium sm:block transition-colors duration-500 ${
+                  stepNumber >= n
+                    ? "text-[var(--foreground)]"
+                    : "text-[var(--muted)]/50"
+                }`}
+              >
+                {label}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
 
       {/* Camera / Recorded video */}
-      <div className="relative flex min-h-[240px] items-center justify-center overflow-hidden rounded-xl bg-zinc-100 dark:bg-zinc-900">
+      <div className="glass relative flex aspect-video items-center justify-center overflow-hidden rounded-2xl">
         {/* Live camera preview */}
         <video
           ref={videoRef}
           autoPlay
           playsInline
           muted
-          className={`h-full w-full rounded-xl object-cover ${showLivePreview ? "" : "hidden"}`}
+          className={`h-full w-full rounded-2xl object-cover ${
+            showLivePreview ? "" : "hidden"
+          }`}
         />
 
         {/* Recorded video playback */}
@@ -327,30 +389,56 @@ export function MoodAnalyzer({ onBgColorChange }: MoodAnalyzerProps) {
             src={recordedUrl}
             controls
             playsInline
-            className="h-full w-full rounded-xl object-cover"
+            className="h-full w-full rounded-2xl object-cover"
           />
         )}
 
-        {/* Camera off placeholder */}
+        {/* Camera off state */}
         {!isCameraOn && (
           <button
             type="button"
             onClick={startCamera}
-            className="flex flex-col items-center gap-2 px-6 py-4 text-center"
+            className="group flex flex-col items-center gap-4 px-8 py-6"
           >
-            <span className="text-4xl">📷</span>
-            <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
-              카메라 시작
-            </span>
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/[0.06] transition-all duration-300 group-hover:bg-[var(--accent)]/20 group-hover:scale-105">
+              <svg
+                width="32"
+                height="32"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="text-[var(--accent)] transition-transform duration-300 group-hover:scale-110"
+              >
+                <path d="m22 8-6 4 6 4V8Z" />
+                <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+              </svg>
+            </div>
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-sm font-semibold text-[var(--foreground)]">
+                Open Camera
+              </span>
+              <span className="text-xs text-[var(--muted)]">
+                Tap to start your scene
+              </span>
+            </div>
           </button>
         )}
 
         {/* Recording overlay */}
         {phase === "recording" && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="flex flex-col items-center gap-2">
-              <span className="rounded-full bg-red-600 px-4 py-1.5 text-sm font-semibold text-white shadow-lg">
-                녹화 중 {countdown}초
+            <div className="flex flex-col items-center gap-3">
+              <div className="relative flex items-center gap-2 rounded-full bg-black/60 px-5 py-2 backdrop-blur-md">
+                <span className="rec-pulse relative h-2.5 w-2.5 rounded-full bg-red-500" />
+                <span className="text-sm font-semibold text-white tabular-nums">
+                  {countdown}s
+                </span>
+              </div>
+              <span className="text-xs text-white/60">
+                Recording your scene...
               </span>
             </div>
           </div>
@@ -358,52 +446,73 @@ export function MoodAnalyzer({ onBgColorChange }: MoodAnalyzerProps) {
 
         {/* Analyzing overlay */}
         {phase === "analyzing" && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-            <span className="rounded-full bg-white/90 px-4 py-1.5 text-sm font-medium text-zinc-800 shadow-lg">
-              분위기 분석 중…
-            </span>
+          <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+            <div className="flex flex-col items-center gap-3">
+              <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-[var(--accent)]" />
+              <span className="text-sm font-medium text-white">
+                Analyzing the mood...
+              </span>
+            </div>
           </div>
         )}
 
         {/* Generating BGM overlay */}
         {phase === "generating" && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-            <span className="rounded-full bg-white/90 px-4 py-1.5 text-sm font-medium text-zinc-800 shadow-lg animate-pulse">
-              BGM 생성 중…
-            </span>
+          <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+            <div className="flex flex-col items-center gap-3">
+              <span className="text-2xl animate-float">🎵</span>
+              <span className="text-sm font-medium text-white animate-pulse">
+                Composing your soundtrack...
+              </span>
+            </div>
           </div>
         )}
 
-        {/* Camera controls */}
-        {isCameraOn && phase !== "recording" && phase !== "analyzing" && phase !== "generating" && (
-          <button
-            type="button"
-            onClick={stopCamera}
-            className="absolute right-2 top-2 rounded-full bg-black/50 px-2.5 py-1 text-xs text-white backdrop-blur-sm transition-colors hover:bg-black/70"
-          >
-            끄기
-          </button>
-        )}
+        {/* Close camera button */}
+        {isCameraOn &&
+          phase !== "recording" &&
+          phase !== "analyzing" &&
+          phase !== "generating" && (
+            <button
+              type="button"
+              onClick={stopCamera}
+              className="absolute right-3 top-3 rounded-full bg-black/40 p-2 backdrop-blur-md transition-colors hover:bg-black/60"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="white"
+                strokeWidth="2"
+                strokeLinecap="round"
+              >
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
+            </button>
+          )}
 
-        {/* Recording indicator */}
+        {/* REC indicator */}
         {phase === "recording" && (
-          <div className="absolute left-2 top-2 flex items-center gap-1.5 rounded-full bg-black/50 px-2.5 py-1 backdrop-blur-sm">
+          <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-black/50 px-2.5 py-1 backdrop-blur-md">
             <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-            <span className="text-xs text-white">REC</span>
+            <span className="text-[10px] font-bold tracking-wider text-white">
+              REC
+            </span>
           </div>
         )}
       </div>
 
       {cameraError && (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
-          {cameraError}
-        </p>
+        <div className="rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3">
+          <p className="text-sm text-red-400">{cameraError}</p>
+        </div>
       )}
 
       {/* Genre selector */}
-      <div className="flex flex-col gap-2">
-        <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          드라마 장르 선택
+      <div className="flex flex-col gap-3">
+        <span className="text-xs font-semibold tracking-widest uppercase text-[var(--muted)]">
+          Drama Genre
         </span>
         <div className="flex flex-wrap gap-2">
           {GENRES.map((g) => (
@@ -412,10 +521,10 @@ export function MoodAnalyzer({ onBgColorChange }: MoodAnalyzerProps) {
               type="button"
               onClick={() => setSelectedGenre(g)}
               disabled={phase === "recording" || phase === "analyzing"}
-              className={`rounded-full border px-3 py-1 text-sm transition-colors disabled:opacity-50 ${
+              className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-all duration-200 disabled:opacity-30 ${
                 selectedGenre === g
-                  ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
-                  : "border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  ? "bg-[var(--accent)] text-[var(--background)] shadow-lg shadow-[var(--accent)]/20"
+                  : "glass-light text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-white/8"
               }`}
             >
               {g}
@@ -430,158 +539,179 @@ export function MoodAnalyzer({ onBgColorChange }: MoodAnalyzerProps) {
           <button
             type="button"
             onClick={startRecording}
-            className="flex-1 rounded-lg bg-red-600 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-red-500"
+            className="group relative flex-1 overflow-hidden rounded-xl bg-gradient-to-r from-red-600 to-red-500 px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-red-600/20 transition-all duration-200 hover:shadow-red-600/30 hover:brightness-110"
           >
-            녹화 시작 (10초)
+            <span className="relative z-10 flex items-center justify-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
+              Start Recording (10s)
+            </span>
           </button>
         )}
         {phase === "done" && (
           <button
             type="button"
             onClick={retryRecording}
-            className="flex-1 rounded-lg bg-zinc-900 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+            className="flex-1 rounded-xl glass-light px-5 py-3.5 text-sm font-semibold text-[var(--foreground)] transition-all duration-200 hover:bg-white/10"
           >
-            다시 녹화
+            Record Again
           </button>
         )}
       </div>
 
       {error && (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
-          {error}
-        </p>
+        <div className="rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3">
+          <p className="text-sm text-red-400">{error}</p>
+        </div>
       )}
 
       {/* Results */}
       {keywords.length > 0 && (
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              선택된 장르
-            </span>
-            <span className="rounded-lg bg-amber-100 px-3 py-2 text-sm font-medium text-amber-900 dark:bg-amber-900/30 dark:text-amber-200">
-              {selectedGenre}
-            </span>
-          </div>
-          <div className="flex flex-col gap-2">
-            <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              추출된 키워드
-            </span>
-            <div className="flex flex-wrap gap-2">
-              {keywords.map((kw) => (
-                <span
-                  key={kw}
-                  className="rounded-full bg-zinc-200 px-3 py-1 text-sm text-zinc-800 dark:bg-zinc-700 dark:text-zinc-200"
-                >
-                  {kw}
+        <div className="flex flex-col gap-6 animate-fade-in-up">
+          {/* Genre & Keywords */}
+          <div className="glass rounded-2xl p-5">
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold tracking-widest uppercase text-[var(--muted)]">
+                  Selected Genre
                 </span>
-              ))}
+                <span className="rounded-full bg-[var(--accent-warm)]/15 px-3 py-1 text-sm font-semibold text-[var(--accent-warm)]">
+                  {selectedGenre}
+                </span>
+              </div>
+              <div className="h-px bg-white/[0.06]" />
+              <div className="flex flex-col gap-2.5">
+                <span className="text-xs font-semibold tracking-widest uppercase text-[var(--muted)]">
+                  Detected Mood
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {keywords.map((kw) => (
+                    <span
+                      key={kw}
+                      className="rounded-full bg-[var(--accent)]/10 border border-[var(--accent)]/20 px-3 py-1 text-sm text-[var(--accent)]"
+                    >
+                      {kw}
+                    </span>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
           {/* BGM Player */}
-          <div className="flex flex-col gap-3">
-            <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              생성된 BGM
-            </span>
-            {isGeneratingBgm && (
-              <div className="flex items-center gap-2 rounded-lg bg-zinc-100 px-4 py-3 dark:bg-zinc-800">
-                <span className="h-3 w-3 animate-spin rounded-full border-2 border-zinc-400 border-t-zinc-800 dark:border-zinc-500 dark:border-t-zinc-200" />
-                <span className="text-sm text-zinc-600 dark:text-zinc-400">
-                  BGM을 생성하고 있습니다…
+          <div className="glass rounded-2xl p-5">
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🎵</span>
+                <span className="text-xs font-semibold tracking-widest uppercase text-[var(--muted)]">
+                  Generated Soundtrack
                 </span>
               </div>
-            )}
-            {audioUrl && !isGeneratingBgm && (
-              <div className="flex flex-col gap-2">
-                <audio
-                  ref={audioRef}
-                  src={audioUrl}
-                  controls
-                  className="w-full"
-                />
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => generateBgm(keywords)}
-                    disabled={isGeneratingBgm}
-                    className="flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                  >
-                    다시 생성
-                  </button>
-                  <a
-                    href={audioUrl}
-                    download={`kdrama-bgm-${keywords.slice(0, 3).join("-")}.wav`}
-                    className="flex-1 rounded-lg bg-zinc-900 px-3 py-2 text-center text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
-                  >
-                    다운로드
-                  </a>
-                </div>
-              </div>
-            )}
-          </div>
 
-          {/* Merge Video + BGM */}
-          {audioUrl && !isGeneratingBgm && recordedBlob && (
-            <div className="flex flex-col gap-3">
-              <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                동영상 + BGM 합치기
-              </span>
-
-              {!mergedUrl && !isMerging && (
-                <button
-                  type="button"
-                  onClick={handleMerge}
-                  className="rounded-lg bg-indigo-600 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
-                >
-                  동영상에 BGM 합치기
-                </button>
-              )}
-
-              {isMerging && (
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2 rounded-lg bg-zinc-100 px-4 py-3 dark:bg-zinc-800">
-                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-zinc-400 border-t-zinc-800 dark:border-zinc-500 dark:border-t-zinc-200" />
-                    <span className="text-sm text-zinc-600 dark:text-zinc-400">
-                      동영상을 합치는 중… {mergeProgress}%
-                    </span>
-                  </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
-                    <div
-                      className="h-full rounded-full bg-indigo-500 transition-all duration-300"
-                      style={{ width: `${mergeProgress}%` }}
-                    />
-                  </div>
+              {isGeneratingBgm && (
+                <div className="flex items-center gap-3 rounded-xl bg-white/[0.03] px-4 py-4">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-[var(--accent)]" />
+                  <span className="text-sm text-[var(--muted)]">
+                    Generating your K-drama BGM...
+                  </span>
                 </div>
               )}
 
-              {mergedUrl && (
+              {audioUrl && !isGeneratingBgm && (
                 <div className="flex flex-col gap-3">
-                  <video
-                    src={mergedUrl}
+                  <audio
+                    ref={audioRef}
+                    src={audioUrl}
                     controls
-                    playsInline
-                    className="w-full rounded-xl"
+                    className="w-full rounded-lg [&::-webkit-media-controls-panel]:bg-[var(--surface-light)]"
                   />
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={handleMerge}
-                      disabled={isMerging}
-                      className="flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      onClick={() => generateBgm(keywords)}
+                      disabled={isGeneratingBgm}
+                      className="flex-1 rounded-xl glass-light px-3 py-2.5 text-sm font-medium text-[var(--muted)] transition-colors hover:text-[var(--foreground)] hover:bg-white/8 disabled:opacity-30"
                     >
-                      다시 합치기
+                      Regenerate
                     </button>
                     <a
-                      href={mergedUrl}
-                      download={`kdrama-bgm-${keywords.slice(0, 3).join("-")}.mp4`}
-                      className="flex-1 rounded-lg bg-indigo-600 px-3 py-2 text-center text-sm font-medium text-white transition-colors hover:bg-indigo-500"
+                      href={audioUrl}
+                      download={`kdrama-bgm-${keywords.slice(0, 3).join("-")}.wav`}
+                      className="flex-1 rounded-xl bg-[var(--accent)] px-3 py-2.5 text-center text-sm font-semibold text-[var(--background)] transition-all hover:brightness-110"
                     >
-                      MP4 다운로드
+                      Download BGM
                     </a>
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* Merge Video + BGM */}
+          {audioUrl && !isGeneratingBgm && recordedBlob && (
+            <div className="glass rounded-2xl p-5">
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">🎬</span>
+                  <span className="text-xs font-semibold tracking-widest uppercase text-[var(--muted)]">
+                    Final Cut
+                  </span>
+                </div>
+
+                {!mergedUrl && !isMerging && (
+                  <button
+                    type="button"
+                    onClick={handleMerge}
+                    className="rounded-xl bg-gradient-to-r from-[var(--accent)] to-[var(--accent-warm)] px-5 py-3.5 text-sm font-semibold text-[var(--background)] shadow-lg shadow-[var(--accent)]/15 transition-all hover:brightness-110"
+                  >
+                    Merge Video + BGM
+                  </button>
+                )}
+
+                {isMerging && (
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center gap-3 rounded-xl bg-white/[0.03] px-4 py-3">
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-[var(--accent)]" />
+                      <span className="text-sm text-[var(--muted)]">
+                        Merging your cinematic moment... {mergeProgress}%
+                      </span>
+                    </div>
+                    <div className="h-1 w-full overflow-hidden rounded-full bg-white/10">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-[var(--accent)] to-[var(--accent-warm)] transition-all duration-300"
+                        style={{ width: `${mergeProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {mergedUrl && (
+                  <div className="flex flex-col gap-4">
+                    <video
+                      src={mergedUrl}
+                      controls
+                      playsInline
+                      className="w-full rounded-xl"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleMerge}
+                        disabled={isMerging}
+                        className="flex-1 rounded-xl glass-light px-3 py-2.5 text-sm font-medium text-[var(--muted)] transition-colors hover:text-[var(--foreground)] hover:bg-white/8 disabled:opacity-30"
+                      >
+                        Re-merge
+                      </button>
+                      <a
+                        href={mergedUrl}
+                        download={`kdrama-bgm-${keywords.slice(0, 3).join("-")}.mp4`}
+                        className="flex-1 rounded-xl bg-gradient-to-r from-[var(--accent)] to-[var(--accent-warm)] px-3 py-2.5 text-center text-sm font-semibold text-[var(--background)] transition-all hover:brightness-110"
+                      >
+                        Download MP4
+                      </a>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

@@ -1,19 +1,18 @@
 import { GoogleGenAI } from '@google/genai'
 import { NextResponse } from 'next/server'
 
-const MOOD_PROMPT = `이 동영상을 분석해서 다음을 JSON으로만 출력해줘.
+const MOOD_PROMPT = `Analyze this video and output ONLY the following JSON.
 
-1) keywords: 분위기를 나타내는 키워드 (다음 세 가지 반영)
-- 색감: 전체적인 색 톤, 채도, 따뜻함/차가움
+1) keywords: mood keywords (in English) reflecting these aspects:
+- Color tone: overall color temperature, saturation, warmth/coolness
+- Expression: emotions visible in facial expressions (if people are present)
+- Composition: impression from framing and arrangement (stability, tension, etc.)
 
-- 표정: 인물이 있다면 표정에서 읽히는 감정
-- 구도: 배치·구도에서 오는 인상 (안정감, 긴장감 등)
+2) bgColor: a single hex color that best represents the overall mood of the video
+- Use soft, low-saturation pastel or muted tones (suitable for UI background)
 
-2) bgColor: 동영상의 전체 분위기를 가장 잘 나타내는 배경색 hex 코드 하나
-- 부드럽고 채도가 낮은 파스텔~뮤트 톤 계열로 (UI 배경용)
-
-반드시 아래 형식의 JSON 하나만 출력해줘. 다른 설명 없이.
-{"keywords": ["따뜻한", "편안한"], "bgColor": "#f5e6d3"}`
+Output ONLY this JSON format, nothing else:
+e.g: {"keywords": ["warm", "peaceful"], "bgColor": "#f5e6d3"}`
 
 interface MoodResult {
   keywords: string[]

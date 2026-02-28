@@ -6,31 +6,39 @@ interface PromptConfig {
 }
 
 const MOOD_MAP: Record<string, Partial<PromptConfig>> = {
-  따뜻한: { brightness: 0.7, density: 0.4, bpm: 85 },
-  편안한: { brightness: 0.6, density: 0.3, bpm: 75 },
-  차가운: { brightness: 0.3, density: 0.4, bpm: 70 },
-  긴장감: { brightness: 0.4, density: 0.7, bpm: 120 },
-  슬픈: { brightness: 0.3, density: 0.3, bpm: 65 },
-  우울한: { brightness: 0.2, density: 0.3, bpm: 60 },
-  밝은: { brightness: 0.8, density: 0.5, bpm: 110 },
-  어두운: { brightness: 0.2, density: 0.5, bpm: 80 },
-  로맨틱한: { brightness: 0.6, density: 0.4, bpm: 90 },
-  설레는: { brightness: 0.7, density: 0.5, bpm: 100 },
-  고요한: { brightness: 0.4, density: 0.2, bpm: 60 },
-  몽환적: { brightness: 0.5, density: 0.3, bpm: 70 },
-  활기찬: { brightness: 0.8, density: 0.7, bpm: 120 },
-  무거운: { brightness: 0.3, density: 0.6, bpm: 75 },
-  신비로운: { brightness: 0.5, density: 0.4, bpm: 80 },
-  잔잔한: { brightness: 0.5, density: 0.2, bpm: 70 },
-  격렬한: { brightness: 0.6, density: 0.8, bpm: 140 },
-  쓸쓸한: { brightness: 0.3, density: 0.2, bpm: 65 },
-  희망적: { brightness: 0.7, density: 0.5, bpm: 100 },
-  불안한: { brightness: 0.3, density: 0.6, bpm: 110 },
-  감성적: { brightness: 0.5, density: 0.4, bpm: 80 },
-  서정적: { brightness: 0.5, density: 0.3, bpm: 75 },
-  드라마틱: { brightness: 0.5, density: 0.7, bpm: 100 },
-  코믹한: { brightness: 0.8, density: 0.6, bpm: 130 },
-  공포스러운: { brightness: 0.1, density: 0.5, bpm: 90 },
+  warm: { brightness: 0.7, density: 0.4, bpm: 85 },
+  cozy: { brightness: 0.6, density: 0.3, bpm: 75 },
+  cold: { brightness: 0.3, density: 0.4, bpm: 70 },
+  tense: { brightness: 0.4, density: 0.7, bpm: 120 },
+  sad: { brightness: 0.3, density: 0.3, bpm: 65 },
+  melancholy: { brightness: 0.2, density: 0.3, bpm: 60 },
+  bright: { brightness: 0.8, density: 0.5, bpm: 110 },
+  dark: { brightness: 0.2, density: 0.5, bpm: 80 },
+  romantic: { brightness: 0.6, density: 0.4, bpm: 90 },
+  fluttering: { brightness: 0.7, density: 0.5, bpm: 100 },
+  serene: { brightness: 0.4, density: 0.2, bpm: 60 },
+  dreamy: { brightness: 0.5, density: 0.3, bpm: 70 },
+  lively: { brightness: 0.8, density: 0.7, bpm: 120 },
+  heavy: { brightness: 0.3, density: 0.6, bpm: 75 },
+  mysterious: { brightness: 0.5, density: 0.4, bpm: 80 },
+  calm: { brightness: 0.5, density: 0.2, bpm: 70 },
+  intense: { brightness: 0.6, density: 0.8, bpm: 140 },
+  lonely: { brightness: 0.3, density: 0.2, bpm: 65 },
+  hopeful: { brightness: 0.7, density: 0.5, bpm: 100 },
+  anxious: { brightness: 0.3, density: 0.6, bpm: 110 },
+  emotional: { brightness: 0.5, density: 0.4, bpm: 80 },
+  lyrical: { brightness: 0.5, density: 0.3, bpm: 75 },
+  dramatic: { brightness: 0.5, density: 0.7, bpm: 100 },
+  comedic: { brightness: 0.8, density: 0.6, bpm: 130 },
+  eerie: { brightness: 0.1, density: 0.5, bpm: 90 },
+  peaceful: { brightness: 0.6, density: 0.2, bpm: 68 },
+  nostalgic: { brightness: 0.5, density: 0.3, bpm: 78 },
+  cheerful: { brightness: 0.8, density: 0.6, bpm: 115 },
+  gloomy: { brightness: 0.2, density: 0.4, bpm: 65 },
+  suspenseful: { brightness: 0.3, density: 0.7, bpm: 105 },
+  passionate: { brightness: 0.7, density: 0.6, bpm: 110 },
+  gentle: { brightness: 0.6, density: 0.2, bpm: 72 },
+  bittersweet: { brightness: 0.4, density: 0.4, bpm: 78 },
 };
 
 function average(values: number[]): number {
@@ -49,10 +57,11 @@ export function getPromptConfig(input: string | string[]): PromptConfig {
 
   const matched = keywords
     .map((kw) => {
-      const direct = MOOD_MAP[kw];
+      const lower = kw.toLowerCase();
+      const direct = MOOD_MAP[lower];
       if (direct) return direct;
       const found = Object.keys(MOOD_MAP).find(
-        (key) => kw.includes(key) || key.includes(kw)
+        (key) => lower.includes(key) || key.includes(lower)
       );
       return found ? MOOD_MAP[found] : null;
     })

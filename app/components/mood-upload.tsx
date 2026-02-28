@@ -25,26 +25,29 @@ export function MoodUpload() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const onFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const chosen = e.target.files?.[0];
-    setError(null);
-    setKeywords([]);
-    setGenre(null);
-    if (preview) URL.revokeObjectURL(preview);
-    if (!chosen) {
-      setFile(null);
-      setPreview(null);
-      return;
-    }
-    if (!chosen.type.startsWith("video/")) {
-      setError("동영상 파일만 선택해 주세요. (mp4, webm 등)");
-      setFile(null);
-      setPreview(null);
-      return;
-    }
-    setFile(chosen);
-    setPreview(URL.createObjectURL(chosen));
-  }, [preview]);
+  const onFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const chosen = e.target.files?.[0];
+      setError(null);
+      setKeywords([]);
+      setGenre(null);
+      if (preview) URL.revokeObjectURL(preview);
+      if (!chosen) {
+        setFile(null);
+        setPreview(null);
+        return;
+      }
+      if (!chosen.type.startsWith("video/")) {
+        setError("Please select a video file (mp4, webm, etc.)");
+        setFile(null);
+        setPreview(null);
+        return;
+      }
+      setFile(chosen);
+      setPreview(URL.createObjectURL(chosen));
+    },
+    [preview]
+  );
 
   const onDrop = useCallback(
     (e: React.DragEvent) => {
@@ -52,7 +55,7 @@ export function MoodUpload() {
       const dropped = e.dataTransfer.files?.[0];
       if (!dropped) return;
       if (!dropped.type.startsWith("video/")) {
-        setError("동영상 파일만 선택해 주세요. (mp4, webm 등)");
+        setError("Please select a video file (mp4, webm, etc.)");
         return;
       }
       setError(null);
@@ -90,18 +93,20 @@ export function MoodUpload() {
         try {
           data = JSON.parse(text);
         } catch {
-          throw new Error(`서버 응답 오류 (${res.status})`);
+          throw new Error(`Invalid server response (${res.status})`);
         }
       }
       if (!res.ok) {
-        throw new Error(data.error ?? `요청 실패 (${res.status})`);
+        throw new Error(data.error ?? `Request failed (${res.status})`);
       }
       setKeywords(data.keywords ?? []);
       setGenre(data.genre ?? null);
     } catch (err) {
       setKeywords([]);
       setGenre(null);
-      setError(err instanceof Error ? err.message : "분석 요청에 실패했습니다.");
+      setError(
+        err instanceof Error ? err.message : "Mood analysis failed."
+      );
     } finally {
       setIsLoading(false);
     }
@@ -117,18 +122,19 @@ export function MoodUpload() {
   }, [preview]);
 
   return (
-    <div className="flex w-full max-w-md flex-col gap-6">
-      <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-        분위기 분석
-      </h1>
-      <p className="text-sm text-zinc-600 dark:text-zinc-400">
-        동영상을 올리면 색감, 조명, 표정, 구도를 보고 분위기 키워드를 추출해요.
+    <div className="flex w-full flex-col gap-6">
+      <h2 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">
+        Upload a Video
+      </h2>
+      <p className="text-sm text-[var(--muted)]">
+        Upload a video and our AI will analyze the color tone, lighting,
+        expressions, and composition to extract mood keywords.
       </p>
 
       <div
         onDrop={onDrop}
         onDragOver={onDragOver}
-        className="flex min-h-[200px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-300 bg-zinc-50/50 p-6 transition-colors hover:border-zinc-400 hover:bg-zinc-100/50 dark:border-zinc-600 dark:bg-zinc-900/30 dark:hover:border-zinc-500 dark:hover:bg-zinc-800/50"
+        className="glass flex min-h-[200px] cursor-pointer flex-col items-center justify-center rounded-2xl p-6 transition-all hover:bg-white/[0.06]"
       >
         <input
           type="file"
@@ -137,28 +143,47 @@ export function MoodUpload() {
           className="sr-only"
           id="mood-video"
         />
-        <label htmlFor="mood-video" className="flex cursor-pointer flex-col items-center gap-2 text-center">
+        <label
+          htmlFor="mood-video"
+          className="flex cursor-pointer flex-col items-center gap-3 text-center"
+        >
           {preview ? (
             <>
               <video
                 src={preview}
                 controls
-                className="max-h-48 max-w-full rounded-lg"
+                className="max-h-48 max-w-full rounded-xl"
                 muted
                 playsInline
               />
-              <span className="text-sm text-zinc-500 dark:text-zinc-400">
-                클릭해서 다른 동영상 선택
+              <span className="text-sm text-[var(--muted)]">
+                Click to select a different video
               </span>
             </>
           ) : (
             <>
-              <span className="text-5xl text-zinc-400 dark:text-zinc-500">↑</span>
-              <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
-                동영상을 드래그하거나 클릭해서 선택
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/[0.06]">
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-[var(--accent)]"
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+              </div>
+              <span className="text-sm font-medium text-[var(--foreground)]">
+                Drag a video here or click to browse
               </span>
-              <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                mp4, webm (최대 약 1분 권장)
+              <span className="text-xs text-[var(--muted)]">
+                mp4, webm (up to ~1 minute recommended)
               </span>
             </>
           )}
@@ -166,9 +191,9 @@ export function MoodUpload() {
       </div>
 
       {error && (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
-          {error}
-        </p>
+        <div className="rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3">
+          <p className="text-sm text-red-400">{error}</p>
+        </div>
       )}
 
       <div className="flex gap-3">
@@ -176,51 +201,53 @@ export function MoodUpload() {
           type="button"
           onClick={analyze}
           disabled={!file || isLoading}
-          className="flex-1 rounded-lg bg-zinc-900 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+          className="flex-1 rounded-xl bg-[var(--accent)] px-5 py-3 text-sm font-semibold text-[var(--background)] transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-30"
         >
-          {isLoading ? "분석 중…" : "분위기 분석"}
+          {isLoading ? "Analyzing..." : "Analyze Mood"}
         </button>
         {file && (
           <button
             type="button"
             onClick={clear}
             disabled={isLoading}
-            className="rounded-lg border border-zinc-300 px-4 py-3 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            className="rounded-xl glass-light px-5 py-3 text-sm font-medium text-[var(--muted)] transition-colors hover:text-[var(--foreground)] hover:bg-white/8 disabled:opacity-30"
           >
-            지우기
+            Clear
           </button>
         )}
       </div>
 
       {(keywords.length > 0 || genre) && (
-        <div className="flex flex-col gap-4">
-          {genre && (
-            <div className="flex flex-col gap-2">
-              <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                추측된 드라마 장르
-              </span>
-              <span className="rounded-lg bg-amber-100 px-3 py-2 text-sm font-medium text-amber-900 dark:bg-amber-900/30 dark:text-amber-200">
-                {genre}
-              </span>
-            </div>
-          )}
-          {keywords.length > 0 && (
-            <div className="flex flex-col gap-2">
-              <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                추출된 키워드
-              </span>
-              <div className="flex flex-wrap gap-2">
-                {keywords.map((kw) => (
-                  <span
-                    key={kw}
-                    className="rounded-full bg-zinc-200 px-3 py-1 text-sm text-zinc-800 dark:bg-zinc-700 dark:text-zinc-200"
-                  >
-                    {kw}
-                  </span>
-                ))}
+        <div className="glass rounded-2xl p-5">
+          <div className="flex flex-col gap-4">
+            {genre && (
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold tracking-widest uppercase text-[var(--muted)]">
+                  Detected Genre
+                </span>
+                <span className="rounded-full bg-[var(--accent-warm)]/15 px-3 py-1 text-sm font-semibold text-[var(--accent-warm)]">
+                  {genre}
+                </span>
               </div>
-            </div>
-          )}
+            )}
+            {keywords.length > 0 && (
+              <div className="flex flex-col gap-2.5">
+                <span className="text-xs font-semibold tracking-widest uppercase text-[var(--muted)]">
+                  Detected Mood
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {keywords.map((kw) => (
+                    <span
+                      key={kw}
+                      className="rounded-full bg-[var(--accent)]/10 border border-[var(--accent)]/20 px-3 py-1 text-sm text-[var(--accent)]"
+                    >
+                      {kw}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

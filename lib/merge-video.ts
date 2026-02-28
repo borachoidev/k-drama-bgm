@@ -58,5 +58,5 @@ export async function mergeVideoAndAudio(
     ff.off("progress", () => {});
   }
 
-  return new Blob([uint8], { type: "video/mp4" });
+  return new Blob([uint8.buffer as ArrayBuffer], { type: "video/mp4" });
 }
