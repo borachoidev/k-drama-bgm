@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { mergeVideoAndAudio } from "@/lib/merge-video";
 
 const GENRES = [
   "로맨스",
@@ -18,7 +19,7 @@ const GENRES = [
 ] as const;
 
 type Genre = (typeof GENRES)[number];
-type Phase = "idle" | "recording" | "analyzing" | "done";
+type Phase = "idle" | "recording" | "analyzing" | "done" | "generating";
 
 const RECORD_DURATION_SEC = 10;
 
@@ -80,6 +81,13 @@ export function MoodAnalyzer({ onBgColorChange }: MoodAnalyzerProps) {
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [keywords, setKeywords] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [isGeneratingBgm, setIsGeneratingBgm] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [mergedUrl, setMergedUrl] = useState<string | null>(null);
+  const [isMerging, setIsMerging] = useState(false);
+  const [mergeProgress, setMergeProgress] = useState(0);
 
   const clearCountdown = useCallback(() => {
     if (countdownRef.current) {
@@ -115,6 +123,8 @@ export function MoodAnalyzer({ onBgColorChange }: MoodAnalyzerProps) {
       videoRef.current.srcObject = null;
     }
     if (recordedUrl) URL.revokeObjectURL(recordedUrl);
+    if (audioUrl) URL.revokeObjectURL(audioUrl);
+    if (mergedUrl) URL.revokeObjectURL(mergedUrl);
     setIsCameraOn(false);
     setPhase("idle");
     setCountdown(RECORD_DURATION_SEC);
@@ -122,8 +132,52 @@ export function MoodAnalyzer({ onBgColorChange }: MoodAnalyzerProps) {
     setRecordedBlob(null);
     setKeywords([]);
     setError(null);
+    setAudioUrl(null);
+    setAudioBlob(null);
+    setIsGeneratingBgm(false);
+    setMergedUrl(null);
+    setIsMerging(false);
+    setMergeProgress(0);
     onBgColorChange?.(null);
-  }, [clearCountdown, recordedUrl, onBgColorChange]);
+  }, [clearCountdown, recordedUrl, audioUrl, mergedUrl, onBgColorChange]);
+
+  const generateBgm = useCallback(
+    async (moodKeywords: string[]) => {
+      setIsGeneratingBgm(true);
+      setPhase("generating");
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+        setAudioUrl(null);
+      }
+      try {
+        const res = await fetch("/api/generate-bgm", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ keywords: moodKeywords }),
+        });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(
+            (errData as { error?: string }).error ??
+              `BGM 생성 실패 (${res.status})`
+          );
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        setAudioBlob(blob);
+        setAudioUrl(url);
+        setPhase("done");
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "BGM 생성에 실패했습니다."
+        );
+        setPhase("done");
+      } finally {
+        setIsGeneratingBgm(false);
+      }
+    },
+    [audioUrl]
+  );
 
   const analyze = useCallback(
     async (blob: Blob) => {
@@ -136,12 +190,15 @@ export function MoodAnalyzer({ onBgColorChange }: MoodAnalyzerProps) {
         setKeywords(result.keywords);
         onBgColorChange?.(result.bgColor);
         setPhase("done");
+        if (result.keywords.length > 0) {
+          generateBgm(result.keywords);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "분석 요청에 실패했습니다.");
         setPhase("done");
       }
     },
-    [onBgColorChange]
+    [onBgColorChange, generateBgm]
   );
 
   const startRecording = useCallback(() => {
@@ -190,17 +247,49 @@ export function MoodAnalyzer({ onBgColorChange }: MoodAnalyzerProps) {
 
   const retryRecording = useCallback(() => {
     if (recordedUrl) URL.revokeObjectURL(recordedUrl);
+    if (audioUrl) URL.revokeObjectURL(audioUrl);
+    if (mergedUrl) URL.revokeObjectURL(mergedUrl);
     setRecordedUrl(null);
     setRecordedBlob(null);
     setKeywords([]);
     setError(null);
+    setAudioUrl(null);
+    setAudioBlob(null);
+    setIsGeneratingBgm(false);
+    setMergedUrl(null);
+    setIsMerging(false);
+    setMergeProgress(0);
     setPhase("idle");
     setCountdown(RECORD_DURATION_SEC);
     onBgColorChange?.(null);
     if (videoRef.current && streamRef.current) {
       videoRef.current.srcObject = streamRef.current;
     }
-  }, [recordedUrl, onBgColorChange]);
+  }, [recordedUrl, audioUrl, mergedUrl, onBgColorChange]);
+
+  const handleMerge = useCallback(async () => {
+    if (!recordedBlob || !audioBlob) return;
+    setIsMerging(true);
+    setMergeProgress(0);
+    setError(null);
+    if (mergedUrl) URL.revokeObjectURL(mergedUrl);
+    setMergedUrl(null);
+    try {
+      const merged = await mergeVideoAndAudio(
+        recordedBlob,
+        audioBlob,
+        (ratio) => setMergeProgress(Math.round(ratio * 100))
+      );
+      const url = URL.createObjectURL(merged);
+      setMergedUrl(url);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "동영상 합치기에 실패했습니다."
+      );
+    } finally {
+      setIsMerging(false);
+    }
+  }, [recordedBlob, audioBlob, mergedUrl]);
 
   useEffect(() => {
     return () => {
@@ -209,8 +298,8 @@ export function MoodAnalyzer({ onBgColorChange }: MoodAnalyzerProps) {
     };
   }, [clearCountdown]);
 
-  const showLivePreview = isCameraOn && phase !== "done";
-  const showRecordedVideo = phase === "done" && recordedUrl;
+  const showLivePreview = isCameraOn && phase !== "done" && phase !== "generating";
+  const showRecordedVideo = (phase === "done" || phase === "generating") && recordedUrl;
 
   return (
     <div className="flex w-full max-w-md flex-col gap-6">
@@ -276,8 +365,17 @@ export function MoodAnalyzer({ onBgColorChange }: MoodAnalyzerProps) {
           </div>
         )}
 
+        {/* Generating BGM overlay */}
+        {phase === "generating" && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+            <span className="rounded-full bg-white/90 px-4 py-1.5 text-sm font-medium text-zinc-800 shadow-lg animate-pulse">
+              BGM 생성 중…
+            </span>
+          </div>
+        )}
+
         {/* Camera controls */}
-        {isCameraOn && phase !== "recording" && phase !== "analyzing" && (
+        {isCameraOn && phase !== "recording" && phase !== "analyzing" && phase !== "generating" && (
           <button
             type="button"
             onClick={stopCamera}
@@ -380,6 +478,112 @@ export function MoodAnalyzer({ onBgColorChange }: MoodAnalyzerProps) {
               ))}
             </div>
           </div>
+
+          {/* BGM Player */}
+          <div className="flex flex-col gap-3">
+            <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              생성된 BGM
+            </span>
+            {isGeneratingBgm && (
+              <div className="flex items-center gap-2 rounded-lg bg-zinc-100 px-4 py-3 dark:bg-zinc-800">
+                <span className="h-3 w-3 animate-spin rounded-full border-2 border-zinc-400 border-t-zinc-800 dark:border-zinc-500 dark:border-t-zinc-200" />
+                <span className="text-sm text-zinc-600 dark:text-zinc-400">
+                  BGM을 생성하고 있습니다…
+                </span>
+              </div>
+            )}
+            {audioUrl && !isGeneratingBgm && (
+              <div className="flex flex-col gap-2">
+                <audio
+                  ref={audioRef}
+                  src={audioUrl}
+                  controls
+                  className="w-full"
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => generateBgm(keywords)}
+                    disabled={isGeneratingBgm}
+                    className="flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  >
+                    다시 생성
+                  </button>
+                  <a
+                    href={audioUrl}
+                    download={`kdrama-bgm-${keywords.slice(0, 3).join("-")}.wav`}
+                    className="flex-1 rounded-lg bg-zinc-900 px-3 py-2 text-center text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                  >
+                    다운로드
+                  </a>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Merge Video + BGM */}
+          {audioUrl && !isGeneratingBgm && recordedBlob && (
+            <div className="flex flex-col gap-3">
+              <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                동영상 + BGM 합치기
+              </span>
+
+              {!mergedUrl && !isMerging && (
+                <button
+                  type="button"
+                  onClick={handleMerge}
+                  className="rounded-lg bg-indigo-600 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
+                >
+                  동영상에 BGM 합치기
+                </button>
+              )}
+
+              {isMerging && (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2 rounded-lg bg-zinc-100 px-4 py-3 dark:bg-zinc-800">
+                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-zinc-400 border-t-zinc-800 dark:border-zinc-500 dark:border-t-zinc-200" />
+                    <span className="text-sm text-zinc-600 dark:text-zinc-400">
+                      동영상을 합치는 중… {mergeProgress}%
+                    </span>
+                  </div>
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+                    <div
+                      className="h-full rounded-full bg-indigo-500 transition-all duration-300"
+                      style={{ width: `${mergeProgress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {mergedUrl && (
+                <div className="flex flex-col gap-3">
+                  <video
+                    src={mergedUrl}
+                    controls
+                    playsInline
+                    className="w-full rounded-xl"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleMerge}
+                      disabled={isMerging}
+                      className="flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    >
+                      다시 합치기
+                    </button>
+                    <a
+                      href={mergedUrl}
+                      download={`kdrama-bgm-${keywords.slice(0, 3).join("-")}.mp4`}
+                      className="flex-1 rounded-lg bg-indigo-600 px-3 py-2 text-center text-sm font-medium text-white transition-colors hover:bg-indigo-500"
+                    >
+                      MP4 다운로드
+                    </a>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
